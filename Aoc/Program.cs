@@ -2,5 +2,5 @@
 
 using Aoc;
 
-var day = new Day7();
+var day = new Day8();
 day.Execute();
