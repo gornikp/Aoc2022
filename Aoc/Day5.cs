@@ -5,6 +5,7 @@ namespace Aoc;
 
 public class Day5 : BaseDay
 {
+    private List<Stack<string>> _stacks = new List<Stack<string>>(9);
     private List<string> _data = new List<string>();
     protected override void ReadFile()
     {
@@ -21,8 +22,6 @@ public class Day5 : BaseDay
     private void FillStacks()
     {
         List<List<string>> lines = new List<List<string>>();
-        var stringWithPlaceholders = _stacksString.Replace("    ", " [2]");
-        var strReader = new StringReader(stringWithPlaceholders);
 
         foreach (var line in _data)
         {
