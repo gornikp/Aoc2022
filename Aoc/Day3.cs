@@ -34,16 +34,20 @@ public class Day3 : BaseDay
     
     protected override void Part2()
     {
-        var chuj = new List<String> { "Śliwa", "Serocki", "Ącki", "Adamksi", "Ekulaw", "Ęcki", "Górnik" };
-        var chuj2 = chuj.OrderBy(x => x);
-        //var top3ElvesCalories = _elves.OrderByDescending(x=> x.Amount).Take(3).Sum(x=> x.Amount);
-
-        //Console.WriteLine($"Top 3 Elves carry {top3ElvesCalories} calories total.");
+        var commons = GetCommponPart2();
+        var sum = commons.Sum(x => char.IsUpper(x) ? x - 38 : x - 96 );
+        Console.WriteLine($"Tum of badges {sum}.");
     }
-    
 
-   
+    private IEnumerable<char> GetCommponPart2()
+    {
+        for (int i = 0; i < _compartments.Count; i += 3)
+        {
+            var elf1 = _compartments[i].CompartmentA + _compartments[i].CompartmentB;
+            var elf2 = _compartments[i + 1].CompartmentA + _compartments[i + 1].CompartmentB;
+            var elf3 = _compartments[i + 2].CompartmentA + _compartments[i + 2].CompartmentB;
 
-   
-
+            yield return elf1.Where(elf2.Contains).Where(elf3.Contains).Distinct().First();
+        }
+    }
 }   
