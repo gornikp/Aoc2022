@@ -44,8 +44,8 @@ public class Day9 : BaseDay
         {
             if (Math.Abs(head.X - X) > 1 ||  Math.Abs(head.Y - Y) > 1)
             {
-                int x = head.X == X ? 0 : head.X > X ? 1 : -1; 
-                int y = head.Y == Y ? 0 : head.Y > Y ? 1 : -1;
+                int x = Math.Sign(head.X - X);
+                int y = Math.Sign(head.Y - Y);
                 return Move(new Point(x,y));
             }
             return this;
