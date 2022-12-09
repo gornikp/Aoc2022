@@ -1,17 +1,20 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Diagnostics.Tracing;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 
 namespace Aoc;
 
-public class Day8 : BaseDay
+public class Day9 : BaseDay
 {
     private List<string> _data = new List<string>();
 
     protected override void ReadFile()
     {
-        using var stream = File.OpenRead("Day8.txt");
+        using var stream = File.OpenRead("Day9.txt");
         using var streamReader = new StreamReader(stream);
         while (!streamReader.EndOfStream)
         {
@@ -21,147 +24,156 @@ public class Day8 : BaseDay
         }
     }
 
-    public class Tree
+    public record Point(int X, int Y)
     {
-        public Tree(short height, bool isVisibleTop, bool isVisibleBottom, bool isVisibleLeft, bool isVisibleRight)
+        public Point(Point a)
         {
-            Height = height;
-            IsVisibleTop = isVisibleTop;
-            IsVisibleBottom = isVisibleBottom;
-            IsVisibleLeft = isVisibleLeft;
-            IsVisibleRight = isVisibleRight;
+            X = a.X;
+            Y = a.Y;
+        }
+        public Point Move(int x, int y) => new Point(X + x, Y + y);
+        public Point Move(Point a) => new Point(X + a.X, Y + a.Y);
+
+        public static Point Create(Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.U:
+                    return new Point(0, 1);
+                case Direction.D:
+                    return new Point(0, -1);
+                case Direction.L:
+                    return new Point(-1, 0);
+                case Direction.R:
+                    return new Point(1, 0);
+                default:
+                    return new Point(0, 0);
+            }
         }
 
-        public short Height { get; set; }
-        public bool IsVisibleTop { get; set; }
-        public bool IsVisibleBottom { get; set; }
-        public bool IsVisibleLeft { get; set; }
-        public bool IsVisibleRight { get; set; }
-
-        public int VisibilityTop { get; set; }
-        public int VisibilityBottom { get; set; }
-        public int VisibilityLeft { get; set; }
-        public int VisibilityRight { get; set; }
-    }
-
-    private List<List<Tree>> WriteIntoArray()
-    {
-        var list = new List<List<Tree>>();
-        for (var i = 0; i < _data.Count; i++)
+        public (Point Point, Direction Direction) MoveTail(Point head, Direction direction)
         {
-            var line = _data[i];
-            var row = new List<Tree>();
-            for (var j = 0; j < line.ToList().Count; j++)
+            if (Math.Abs(head.X - X) > 1 && Math.Abs(head.Y - Y) == 0) // horizontal move
             {
-                var value = line.ToList()[j];
-                row.Add(new(short.Parse(value.ToString()), i == 0, i == _data.Count - 1, j == 0, j == line.ToList().Count - 1));
+                var move = direction == Direction.R || direction == Direction.RU || direction == Direction.RD? 1 : -1; // Any Horizontal move
+                return (Move(move, 0), move > 0 ? Direction.R : Direction.L); // Return current move
+            }
+            if (Math.Abs(head.X - X) == 0 && Math.Abs(head.Y - Y) > 1) // vertical move
+            {
+                var move = direction == Direction.U || direction == Direction.LU || direction == Direction.RU? 1 : -1; // Any vertical move
+                return (Move(0, move), move > 0 ? Direction.U : Direction.D); // Return current move
+            }
+            
+            //diagonal move
+            if (Math.Abs(head.X - X) + Math.Abs(head.Y - Y) > 2)
+            {
+                return direction switch
+                {
+                    Direction.U => (new Point(head.X, Y + 1), head.X > X ? Direction.RU : Direction.LU),
+                    Direction.D => (new Point(head.X, Y - 1), head.X > X ? Direction.RD : Direction.LD),
+                    Direction.L => (new Point(X - 1, head.Y), head.Y - Y > 0 ? Direction.LU : Direction.LD),
+                    Direction.R => (new Point(X + 1, head.Y), head.Y - Y > 0 ? Direction.RU : Direction.RD),
+                    
+                    Direction.LU => (Move(-1,1), Direction.LU),
+                    Direction.LD => (Move(-1,-1), Direction.LD),
+                    Direction.RD => (Move(1,-1), Direction.RD),
+                    Direction.RU => (Move(1,1), Direction.RU),
+                    _ => (this, Direction.NoMove)
+                };
             }
 
-            list.Add(row);
+            return (this, Direction.NoMove);
         }
-
-
-        return list;
     }
 
     protected override void Part1()
     {
-        var array = WriteIntoArray();
-
-        var count = 0;
-        var tempHighestL = new short[array.Count];
-        var tempHighestT = new short[array[0].Count];
-
-        for (int i = 0; i < array.Count; i++)
+        List<Point> tailPoints = new List<Point>();
+        var currentHeadPoint = new Point(0, 0);
+        var currentTailPoint = new Point(0, 0);
+        foreach (var moveString in _data)
         {
-            for (int j = 0; j < array[i].Count; j++)
+            var splitted = moveString.Split(" ", StringSplitOptions.TrimEntries);
+            var direction = Enum.Parse<Direction>(splitted[0]);
+            var move = Point.Create(direction);
+            for (int i = 0; i < int.Parse(splitted[1]); i++)
             {
-                var current = array[i][j];
-                current.IsVisibleLeft = tempHighestL[i] < current.Height || current.IsVisibleLeft;
-                current.IsVisibleTop = tempHighestT[j] < current.Height || current.IsVisibleTop;
-
-                tempHighestL[i] = current.IsVisibleLeft ? current.Height : tempHighestL[i];
-                tempHighestT[j] = current.IsVisibleTop ? current.Height : tempHighestT[j];
+                currentHeadPoint = currentHeadPoint.Move(move);
+                currentTailPoint = currentTailPoint.MoveTail(currentHeadPoint, direction).Point;
+                tailPoints.Add(currentTailPoint);
             }
         }
 
-        var tempHighestR = new short[array.Count];
-        var tempHighestB = new short[array[0].Count];
-        for (int i = array.Count - 1; i > -1; i--)
-        {
-            for (int j = array[i].Count - 1; j > -1; j--)
-            {
-                var current = array[i][j];
-                current.IsVisibleRight = tempHighestR[i] < current.Height || current.IsVisibleRight;
-                current.IsVisibleBottom = tempHighestB[j] < current.Height || current.IsVisibleBottom;
-
-                tempHighestR[i] = current.IsVisibleRight ? current.Height : tempHighestR[i];
-                tempHighestB[j] = current.IsVisibleBottom ? current.Height : tempHighestB[j];
-
-                if (current.IsVisibleLeft || current.IsVisibleTop || current.IsVisibleBottom || current.IsVisibleRight)
-                    count++;
-            }
-        }
-
-        Console.WriteLine($"Part1: {count}");
+        var distinctPoints = tailPoints.Distinct().ToList();
+        Console.WriteLine($"Part1: {distinctPoints.Count}");
     }
 
     protected override void Part2()
     {
-        var array = WriteIntoArray();
-        for (int i = 0; i < array.Count; i++)
+        List<Point> tailPoints = new List<Point>();
+        var tail = new List<(Point Point, Direction Direction)>(9);
+        for (int i = 0; i < 10; i++)
         {
-            for (int j = 0; j < array[i].Count; j++)
+            tail.Add((new Point(11, 5), Direction.NoMove));
+        }
+        foreach (var moveString in _data)
+        {
+            var splitted = moveString.Split(" ", StringSplitOptions.TrimEntries);
+            var direction = Enum.Parse<Direction>(splitted[0]);
+            var move = Point.Create(direction);
+            for (int i = 0; i < int.Parse(splitted[1]); i++)
             {
-                var current = array[i][j];
-                foreach (var tree in GetAllLeft(array, i, j))
+                tail[0] =  (tail[0].Point.Move(move), direction);
+                
+                for (int j = 1; j < tail.Count; j++)
                 {
-                    current.VisibilityLeft++;
-                    if (current.Height <= tree.Height)
-                        break;
+                    tail[j] = tail[j].Point.MoveTail(tail[j-1].Point, tail[j-1].Direction);
                 }
-                foreach (var tree in GetAllRight(array, i, j))
-                {
-                    current.VisibilityRight++;
-                    if (current.Height <= tree.Height)
-                        break;
-                }
-                foreach (var tree in GetAllTop(array, i, j))
-                {
-                    current.VisibilityTop++;
-                    if (current.Height <= tree.Height)
-                        break;
-                }
-                foreach (var tree in GetAllBottom(array, i, j))
-                {
-                    current.VisibilityBottom++;
-                    if (current.Height <= tree.Height)
-                        break;
-                }
+                tailPoints.Add(tail[9].Point);
             }
         }
 
-        var output = array.SelectMany(x => x.Select(y => y)).Max(y=> y.VisibilityLeft * y.VisibilityBottom * y.VisibilityRight * y.VisibilityTop);
-        Console.WriteLine($"Part2: {output}");
+        var distinctPoints = tailPoints.Distinct().ToList();
+        Console.WriteLine($"Part2: {distinctPoints.Count}");
     }
 
-    private IEnumerable<Tree> GetAllLeft(List<List<Tree>> array, int i, int j)
+    void PrintSnake(List<(Point Point, Direction Direction)> snake)
     {
-        return array[i].Take(j).Reverse();
+        var table = new List<List<string>>();
+        for (int i = 0; i < 100; i++)
+        {
+            var innerLine = new List<string>();
+            for (int j = 0; j < 100; j++)
+            {
+                innerLine.Add(".");
+            }
+            table.Add(innerLine);
+        }
+
+        for (int i = snake.Count - 1; i >= 0 ; i--)
+        {
+            table[snake[i].Point.Y][snake[i].Point.X] = $"{i}";
+            table[snake[0].Point.Y][snake[0].Point.X] = "H";
+            table[5][11] = "s";
+        }
+        
+        foreach (var line in table.AsEnumerable().Reverse())
+        {
+            var xd = string.Concat(line);
+            Console.WriteLine(xd);
+        }
     }
 
-    private IEnumerable<Tree> GetAllRight(List<List<Tree>> array, int i, int j)
+    public enum Direction
     {
-        return array[i].Skip(j + 1);
-    }
-
-    private IEnumerable<Tree> GetAllTop(List<List<Tree>> array, int i, int j)
-    {
-        return array.Select(x => x[j]).Take(i).Reverse();
-    }
-
-    private IEnumerable<Tree> GetAllBottom(List<List<Tree>> array, int i, int j)
-    {
-        return array.Select(x => x[j]).Skip(i + 1);
+        NoMove = 0,
+        U = 1,
+        D = 2,
+        L = 3,
+        R = 4,
+        LU = 5,
+        LD = 6,
+        RD = 7,
+        RU = 8
     }
 }
