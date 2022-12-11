@@ -61,7 +61,7 @@ public class Day10 : BaseDay
             }
 
             var index = (int)Math.Floor((double)clock / 40);
-            var index2 = (clock) % 40;
+            var index2 = (clock + 1) % 40;
             if (RegisterX + 1 >= index2 && index2 >= RegisterX - 1)
             {
                 table[index][index2] = '█';
